@@ -17,6 +17,7 @@ import (
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
+	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
@@ -154,22 +155,44 @@ func handler(evt interface{}) {
 			handleImage(v)
 		} else if strings.HasPrefix(lowerText, "!ak ttt") {
 			opponent := "AI"
-			mentions := v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
-			if len(mentions) > 0 {
-				opponent = mentions[0]
+			if v.Message.GetExtendedTextMessage() != nil && v.Message.GetExtendedTextMessage().GetContextInfo() != nil {
+				mentions := v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
+				if len(mentions) > 0 {
+					opponent = mentions[0]
+				}
 			}
 			
 			args := strings.Fields(text)
 			if len(args) > 1 {
-				// Usage: !ak ttt move 1 or !ak ttt @user
-				cmdArgs := args[1:] // ttt move 1
-				if strings.ToLower(cmdArgs[0]) == "ttt" && len(cmdArgs) > 1 {
-					res := games.HandleTTT(v.Info.Chat.String(), v.Info.Sender.String(), opponent, cmdArgs[1:])
-					client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
-				} else {
-					// Direct !ak ttt @user
-					res := games.HandleTTT(v.Info.Chat.String(), v.Info.Sender.String(), opponent, []string{})
-					client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+				// args[0] = "!ak", args[1] = "ttt"
+				res := games.HandleTTT(v.Info.Chat.String(), v.Info.Sender.String(), opponent, args[2:])
+				client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			}
+		} else if strings.HasPrefix(lowerText, "!ak poker") || strings.HasPrefix(lowerText, "!ak blackjack") {
+			args := strings.Fields(text)
+			if len(args) >= 2 {
+				name := v.Info.PushName
+				if name == "" {
+					name = v.Info.Sender.User
+				}
+				// args[0] = "!ak", args[1] = "poker"/"blackjack", args[2:] = subcommands
+				res := games.HandleCardGame(v.Info.Chat.String(), v.Info.Sender.String(), name, args[2:])
+				client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+				
+				// Handle private card dealing if game started
+				if strings.Contains(res, "Game started!") {
+					_, state, _ := games.GetGameState(v.Info.Chat.String())
+					game := games.DeserializeCardGame(state)
+					for _, p := range game.Players {
+						targetJID, _ := types.ParseJID(p.JID)
+						cards := ""
+						for _, c := range p.Hand {
+							cards += fmt.Sprintf("[%s%s] ", c.Value, c.Suit)
+						}
+						client.SendMessage(context.Background(), targetJID, &waE2E.Message{
+							Conversation: proto.String(fmt.Sprintf("Your cards for the %s game in %s:\n%s", game.Type, v.Info.Chat.String(), cards)),
+						}, whatsmeow.SendRequestExtra{})
+					}
 				}
 			}
 		} else if strings.HasPrefix(lowerText, "!ak rps") {
@@ -209,9 +232,10 @@ func handleHelp(v *events.Message) {
 - !ak img: Reply to a sticker to convert it back to an image.
 
 *Games:*
-- !ak ttt: Start Tic-Tac-Toe against AI.
-- !ak ttt @user: Challenge someone to TTT.
-- !ak ttt move [1-9]: Make a move in TTT.
+- !ak ttt [@user]: Play/Challenge Tic-Tac-Toe.
+- !ak poker make [texas/blackjack]: Create a card game table.
+- !ak poker join: Join the card game.
+- !ak poker start: Start the table.
 - !ak rps [rock/paper/scissors]: Play RPS with Ayanokoji.`
 	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
 		Conversation: proto.String(helpText),
@@ -328,7 +352,7 @@ func handleSticker(v *events.Message) {
 
 	if img := msg.GetImageMessage(); img != nil {
 		imgData, err = client.Download(context.Background(), img)
-	} else if msg.GetExtendedTextMessage().GetContextInfo() != nil && msg.GetExtendedTextMessage().GetContextInfo().GetQuotedMessage().GetImageMessage() != nil {
+	} else if msg.GetExtendedTextMessage() != nil && msg.GetExtendedTextMessage().GetContextInfo() != nil && msg.GetExtendedTextMessage().GetContextInfo().GetQuotedMessage().GetImageMessage() != nil {
 		imgData, err = client.Download(context.Background(), msg.GetExtendedTextMessage().GetContextInfo().GetQuotedMessage().GetImageMessage())
 	} else {
 		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Send an image or reply to one with !Ak s")}, whatsmeow.SendRequestExtra{})
@@ -363,7 +387,7 @@ func handleSticker(v *events.Message) {
 }
 
 func handleImage(v *events.Message) {
-	if v.Message.GetExtendedTextMessage().GetContextInfo() == nil || v.Message.GetExtendedTextMessage().GetContextInfo().GetQuotedMessage().GetStickerMessage() == nil {
+	if v.Message.GetExtendedTextMessage() == nil || v.Message.GetExtendedTextMessage().GetContextInfo() == nil || v.Message.GetExtendedTextMessage().GetContextInfo().GetQuotedMessage().GetStickerMessage() == nil {
 		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Reply to a sticker with !Ak img")}, whatsmeow.SendRequestExtra{})
 		return
 	}
