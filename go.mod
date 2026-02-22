@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 module whatsappbot_go
+=======
+module whatsapbot_go
+>>>>>>> d6c6fdedd0fa73f5fd3687d401d8a25db7349450
 
 go 1.25.6
 
