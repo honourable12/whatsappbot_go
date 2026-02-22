@@ -153,6 +153,31 @@ func handler(evt interface{}) {
 			handleSticker(v)
 		} else if strings.HasPrefix(lowerText, "!ak img") {
 			handleImage(v)
+		} else if strings.HasPrefix(lowerText, "!ak roast") {
+			handleRoast(v)
+		} else if strings.HasPrefix(lowerText, "!ak ludo") {
+			args := strings.Fields(text)
+			if len(args) > 1 {
+				res, boardImg := games.HandleLudo(v.Info.Chat.String(), v.Info.Sender.String(), v.Info.PushName, args[1:])
+				if boardImg != nil {
+					// Upload and send image
+					resp, _ := client.Upload(context.Background(), boardImg, whatsmeow.MediaImage)
+					client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+						ImageMessage: &waE2E.ImageMessage{
+							URL:           proto.String(resp.URL),
+							DirectPath:    proto.String(resp.DirectPath),
+							MediaKey:      resp.MediaKey,
+							Mimetype:      proto.String("image/png"),
+							FileEncSHA256: resp.FileEncSHA256,
+							FileSHA256:    resp.FileSHA256,
+							FileLength:    proto.Uint64(uint64(len(boardImg))),
+							Caption:       proto.String(res),
+						},
+					}, whatsmeow.SendRequestExtra{})
+				} else {
+					client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+				}
+			}
 		} else if strings.HasPrefix(lowerText, "!ak ttt") {
 			opponent := "AI"
 			if v.Message.GetExtendedTextMessage() != nil && v.Message.GetExtendedTextMessage().GetContextInfo() != nil {
@@ -164,7 +189,6 @@ func handler(evt interface{}) {
 			
 			args := strings.Fields(text)
 			if len(args) > 1 {
-				// args[0] = "!ak", args[1] = "ttt"
 				res := games.HandleTTT(v.Info.Chat.String(), v.Info.Sender.String(), opponent, args[2:])
 				client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
 			}
@@ -175,11 +199,9 @@ func handler(evt interface{}) {
 				if name == "" {
 					name = v.Info.Sender.User
 				}
-				// args[0] = "!ak", args[1] = "poker"/"blackjack", args[2:] = subcommands
 				res := games.HandleCardGame(v.Info.Chat.String(), v.Info.Sender.String(), name, args[2:])
 				client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
 				
-				// Handle private card dealing if game started
 				if strings.Contains(res, "Game started!") {
 					_, state, _ := games.GetGameState(v.Info.Chat.String())
 					game := games.DeserializeCardGame(state)
@@ -215,6 +237,36 @@ func handler(evt interface{}) {
 	}
 }
 
+func handleRoast(v *events.Message) {
+	mentions := []string{}
+	if v.Message.GetExtendedTextMessage() != nil && v.Message.GetExtendedTextMessage().GetContextInfo() != nil {
+		mentions = v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
+	}
+
+	target := "this person"
+	if len(mentions) > 0 {
+		target = "@" + strings.Split(mentions[0], "@")[0]
+	}
+
+	fmt.Printf("Generating clinical analysis for %s\n", target)
+	query := fmt.Sprintf("Perform a clinical, analytical observation of %s based on their current status. Detail their tactical flaws and behavioral patterns with stoic precision. No emotional bias.", target)
+	
+	resp, err := ai.GetAyanokojiResponse(v.Info.Chat.String(), query)
+	if err != nil {
+		fmt.Println("Roast error:", err)
+		return
+	}
+
+	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+		ExtendedTextMessage: &waE2E.ExtendedTextMessage{
+			Text: proto.String(resp),
+			ContextInfo: &waE2E.ContextInfo{
+				MentionedJID: mentions,
+			},
+		},
+	}, whatsmeow.SendRequestExtra{})
+}
+
 func handleHelp(v *events.Message) {
 	helpText := `🤖 *Ayanokoji Bot Commands*
 
@@ -224,7 +276,8 @@ func handleHelp(v *events.Message) {
 - !ak reset: Clear your chat history with Ayanokoji.
 
 *AI:*
-- !ak [your question]: Chat with Ayanokoji (AI). Full history memory.
+- !ak [question]: Chat with Ayanokoji.
+- !ak roast @user: Get a cold Ayanokoji roast.
 
 *Media:*
 - !ak steal: Reply to a view-once image/video to "steal" it.
@@ -232,6 +285,7 @@ func handleHelp(v *events.Message) {
 - !ak img: Reply to a sticker to convert it back to an image.
 
 *Games:*
+- !ak ludo [make/join/start]: Ludo board game.
 - !ak ttt [@user]: Play/Challenge Tic-Tac-Toe.
 - !ak poker make [texas/blackjack]: Create a card game table.
 - !ak poker join: Join the card game.
