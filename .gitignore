@@ -1,0 +1,4 @@
+examplestore.db
+games.db
+.env
+go.sum
