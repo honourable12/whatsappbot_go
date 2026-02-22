@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/sashabaranov/go-openai"
-	"whatsaapbot_go/games"
+	"whatsappbot_go/games"
 )
 
 const AyanokojiPrompt = `You are Kiyotaka Ayanokoji from Classroom of the Elite. 

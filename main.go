@@ -22,9 +22,9 @@ import (
 	waLog "go.mau.fi/whatsmeow/util/log"
 	"google.golang.org/protobuf/proto"
 
-	"whatsaapbot_go/ai"
-	"whatsaapbot_go/games"
-	"whatsaapbot_go/utils"
+	"whatsappbot_go/ai"
+	"whatsappbot_go/games"
+	"whatsappbot_go/utils"
 )
 
 var client *whatsmeow.Client
