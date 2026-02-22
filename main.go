@@ -217,6 +217,48 @@ func handler(evt interface{}) {
 					}
 				}
 			}
+		} else if strings.HasPrefix(lowerText, "!ak battle") {
+			args := strings.Fields(text)
+			opponentID := ""
+			opponentName := "Opponent"
+			if v.Message.GetExtendedTextMessage() != nil && v.Message.GetExtendedTextMessage().GetContextInfo() != nil {
+				mentions := v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
+				if len(mentions) > 0 {
+					opponentID = mentions[0]
+					opponentName = strings.Split(opponentID, "@")[0]
+				}
+			}
+
+			senderName := v.Info.PushName
+			if senderName == "" {
+				senderName = v.Info.Sender.User
+			}
+
+			res, game := games.HandleBattle(v.Info.Chat.String(), v.Info.Sender.String(), senderName, opponentID, opponentName, args[2:])
+			
+			if game != nil {
+				boardImg, err := utils.RenderBattleBoard(game)
+				if err == nil {
+					resp, _ := client.Upload(context.Background(), boardImg, whatsmeow.MediaImage)
+					client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+						ImageMessage: &waE2E.ImageMessage{
+							URL:           proto.String(resp.URL),
+							DirectPath:    proto.String(resp.DirectPath),
+							MediaKey:      resp.MediaKey,
+							Mimetype:      proto.String("image/png"),
+							FileEncSHA256: resp.FileEncSHA256,
+							FileSHA256:    resp.FileSHA256,
+							FileLength:    proto.Uint64(uint64(len(boardImg))),
+							Caption:       proto.String(res + "\n" + game.RenderText()),
+						},
+					}, whatsmeow.SendRequestExtra{})
+				} else {
+					client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res + "\n" + game.RenderText())}, whatsmeow.SendRequestExtra{})
+				}
+			} else {
+				client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			}
+			return
 		} else if strings.HasPrefix(lowerText, "!ak rps") {
 			handleRPS(v)
 		} else if strings.HasPrefix(lowerText, "!ak") || !isGroup {
@@ -290,6 +332,7 @@ func handleHelp(v *events.Message) {
 - !ak poker make [texas/blackjack]: Create a card game table.
 - !ak poker join: Join the card game.
 - !ak poker start: Start the table.
+- !ak battle [@user]: Start a battle card game.
 - !ak rps [rock/paper/scissors]: Play RPS with Ayanokoji.`
 	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
 		Conversation: proto.String(helpText),

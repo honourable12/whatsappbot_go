@@ -36,9 +36,12 @@ func GenerateLudoBoard() ([]byte, error) {
 }
 
 func fillrect(img *image.RGBA, x1, y1, x2, y2 int, c color.Color) {
+	bounds := img.Bounds()
 	for x := x1; x < x2; x++ {
 		for y := y1; y < y2; y++ {
-			img.Set(x, y, c)
+			if x >= bounds.Min.X && x < bounds.Max.X && y >= bounds.Min.Y && y < bounds.Max.Y {
+				img.Set(x, y, c)
+			}
 		}
 	}
 }
