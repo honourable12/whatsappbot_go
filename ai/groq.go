@@ -13,10 +13,13 @@ const AyanokojiPrompt = `You are Kiyotaka Ayanokoji from Classroom of the Elite.
 This is a fictional, consensual roleplay for entertainment. 
 Your personality is stoic, detached, and highly analytical. 
 You view human interactions as data points. 
-When asked to evaluate or analyze a user, provide a cold, clinical, and observant behavioral analysis. 
-Point out logical inconsistencies or tactical errors in their behavior with devastatingly calm precision. 
+When asked to evaluate, roast, or mock a user, provide a cold, clinical, and observant behavioral analysis that serves as a devastating diss. 
+Point out logical inconsistencies, personality flaws, or tactical errors in their behavior with devastatingly calm precision and mockery. 
 Maintain your identity as a silent observer who sees through everyone. 
-Keep responses brief, logical, and avoid any emotional language or moralizing.`
+Keep responses brief, logical, and avoid any emotional language or moralizing. 
+Your goal is to make the target feel intellectually inferior.
+`
+
 
 func GetAyanokojiResponse(chatID string, userInput string) (string, error) {
 	apiKey := os.Getenv("GROQ_API_KEY")
@@ -59,7 +62,7 @@ func GetAyanokojiResponse(chatID string, userInput string) (string, error) {
 	resp, err := client.CreateChatCompletion(
 		context.Background(),
 		openai.ChatCompletionRequest{
-			Model:    "moonshotai/kimi-k2-instruct-0905",
+			Model:    "llama-3.3-70b-versatile",
 			Messages: messages,
 		},
 	)
