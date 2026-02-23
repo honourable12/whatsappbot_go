@@ -9,8 +9,8 @@ import (
 type TTTGame struct {
 	Board   [3][3]string `json:"board"`
 	Turn    string       `json:"turn"`
-	PlayerX string       `json:"player_x"` // JID
-	PlayerO string       `json:"player_o"` // JID or "AI"
+	PlayerX string       `json:"player_x"` 
+	PlayerO string       `json:"player_o"` 
 	Active  bool         `json:"active"`
 }
 

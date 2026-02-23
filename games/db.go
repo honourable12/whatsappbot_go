@@ -21,6 +21,13 @@ func InitDB(path string) error {
 		state TEXT,
 		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+	CREATE TABLE IF NOT EXISTS arguments (
+		chat_id TEXT PRIMARY KEY,
+		p1_jid TEXT,
+		p2_jid TEXT,
+		start_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+		active BOOLEAN DEFAULT 1
+	);
 	CREATE TABLE IF NOT EXISTS chat_history (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		chat_id TEXT,
@@ -102,6 +109,29 @@ func GetChatHistory(chatID string, limit int) ([]ChatHistoryEntry, error) {
 
 func ResetChatHistory(chatID string) error {
 	query := "DELETE FROM chat_history WHERE chat_id = ?"
+	_, err := db.Exec(query, chatID)
+	return err
+}
+
+func StartArgument(chatID string, p1JID string, p2JID string) error {
+	query := "INSERT INTO arguments (chat_id, p1_jid, p2_jid, active) VALUES (?, ?, ?, 1) ON CONFLICT(chat_id) DO UPDATE SET p1_jid = excluded.p1_jid, p2_jid = excluded.p2_jid, active = 1, start_time = CURRENT_TIMESTAMP;"
+	_, err := db.Exec(query, chatID, p1JID, p2JID)
+	return err
+}
+
+func GetArgument(chatID string) (string, string, string, bool, error) {
+	var p1, p2, startTime string
+	var active bool
+	query := "SELECT p1_jid, p2_jid, start_time, active FROM arguments WHERE chat_id = ?"
+	err := db.QueryRow(query, chatID).Scan(&p1, &p2, &startTime, &active)
+	if err != nil {
+		return "", "", "", false, err
+	}
+	return p1, p2, startTime, active, nil
+}
+
+func EndArgument(chatID string) error {
+	query := "DELETE FROM arguments WHERE chat_id = ?"
 	_, err := db.Exec(query, chatID)
 	return err
 }
