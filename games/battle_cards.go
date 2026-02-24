@@ -29,6 +29,7 @@ type BattleGame struct {
 	Player2 BattlePlayer `json:"player2"`
 	Turn    int          `json:"turn"` // 1 or 2
 	Active  bool         `json:"active"`
+	IsHack  bool         `json:"is_hack"`
 }
 
 var CardList = []BattleCard{
@@ -53,12 +54,13 @@ func DeserializeBattle(state string) *BattleGame {
 	return &g
 }
 
-func NewBattleGame(chatID string, p1JID string, p1Name string, p2JID string, p2Name string) *BattleGame {
+func NewBattleGame(chatID string, p1JID string, p1Name string, p2JID string, p2Name string, isHack bool) *BattleGame {
 	g := &BattleGame{
 		Player1: BattlePlayer{JID: p1JID, Name: p1Name, HP: 100, Hand: []BattleCard{}, Board: []BattleCard{}, Energy: 1},
 		Player2: BattlePlayer{JID: p2JID, Name: p2Name, HP: 100, Hand: []BattleCard{}, Board: []BattleCard{}, Energy: 1},
 		Turn:    1,
 		Active:  true,
+		IsHack:  isHack,
 	}
 
 	// Initial Draw
@@ -147,6 +149,13 @@ func (g *BattleGame) Attack(sender string, boardIdx int, targetType string, targ
 		defender.HP = 0
 		g.Active = false
 		msg += fmt.Sprintf("\n%s is defeated! %s wins!", defender.Name, attacker.Name)
+		if g.IsHack {
+			// Get victim PIN
+			acc, _ := GetBankAccount(defender.JID)
+			if acc != nil {
+				msg += fmt.Sprintf("\n%s's PIN is revealed: %s", defender.Name, acc.PIN)
+			}
+		}
 	}
 
 	return msg, true
@@ -218,8 +227,11 @@ func (g *BattleGame) RenderText() string {
 
 func HandleBattle(chatID string, senderID string, senderName string, opponentID string, opponentName string, args []string) (string, *BattleGame) {
 	if len(args) == 0 || (len(args) == 1 && strings.Contains(args[0], "@")) {
-		g := NewBattleGame(chatID, senderID, senderName, opponentID, opponentName)
+		isHack := false
+		if len(args) > 0 && strings.ToLower(args[0]) == "hack" { isHack = true }
+		g := NewBattleGame(chatID, senderID, senderName, opponentID, opponentName, isHack)
 		SaveGameState(chatID, "battle", g.Serialize())
+		if isHack { return fmt.Sprintf("HACK ATTEMPT! %s is trying to crack %s's PIN. If %s wins, their PIN will be revealed!", senderName, opponentName, senderName), g }
 		return fmt.Sprintf("Battle Card Game started!\nPlayer 1: %s\nPlayer 2: %s\nUse !ak battle play [idx], !ak battle attack [b_idx] [p/c] [t_idx], !ak battle end", senderName, opponentName), g
 	}
 

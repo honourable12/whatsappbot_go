@@ -51,13 +51,19 @@ func HandleCardGame(chatID string, senderID string, senderName string, args []st
 - !ak poker cancel: Cancel the current table (Host only).`
 
 	case "make":
-		if len(args) < 2 { return "Choose a type: !ak poker make texas OR !ak poker make blackjack" }
+		if len(args) < 3 { return "Usage: !ak poker make [texas/blackjack] [initial_bet]" }
 		gType := strings.ToLower(args[1])
-		if gType != "texas" && gType != "blackjack" { return "Invalid game type." }
+		var bet int
+		fmt.Sscanf(args[2], "%d", &bet)
+		
+		acc, _ := GetBankAccount(senderID)
+		if acc == nil { return "Account not found." }
+		if acc.Balance < bet { return "Insufficient funds." }
 
+		UpdateBalance(senderID, -bet)
 		game := &CardGame{
 			Type:    gType,
-			Players: []*Player{{JID: senderID, Name: senderName}},
+			Players: []*Player{{JID: senderID, Name: senderName, Bet: bet}},
 			Deck:    NewDeck(),
 			Rules:   "Standard",
 			Active:  false,
@@ -65,11 +71,19 @@ func HandleCardGame(chatID string, senderID string, senderName string, args []st
 		}
 		Shuffle(game.Deck)
 		SaveGameState(chatID, "poker", game.Serialize())
-		return fmt.Sprintf("Table created for %s! Host: %s. Others can use !ak poker join to play.", gType, senderName)
+		return fmt.Sprintf("Table created for %s with %d bet!", gType, bet)
 
 	case "join":
+		if len(args) < 2 { return "Usage: !ak poker join [bet_amount]" }
+		var bet int
+		fmt.Sscanf(args[1], "%d", &bet)
+		
+		acc, _ := GetBankAccount(senderID)
+		if acc == nil { return "Register for a bank account first: !ak bank register [pin]" }
+		if acc.Balance < bet { return "Insufficient funds." }
+
 		gameType, state, err := GetGameState(chatID)
-		if err != nil || gameType != "poker" { return "No active table. Host one with !ak poker make" }
+		if err != nil || gameType != "poker" { return "No active table." }
 		game := DeserializeCardGame(state)
 		if game.Active { return "The game has already started." }
 
@@ -77,9 +91,10 @@ func HandleCardGame(chatID string, senderID string, senderName string, args []st
 			if p.JID == senderID { return "You already joined." }
 		}
 
-		game.Players = append(game.Players, &Player{JID: senderID, Name: senderName})
+		UpdateBalance(senderID, -bet)
+		game.Players = append(game.Players, &Player{JID: senderID, Name: senderName, Bet: bet})
 		SaveGameState(chatID, "poker", game.Serialize())
-		return fmt.Sprintf("%s has joined the table! Total players: %d", senderName, len(game.Players))
+		return fmt.Sprintf("%s joined with a bet of %d!", senderName, bet)
 
 	case "rules":
 		gameType, state, err := GetGameState(chatID)

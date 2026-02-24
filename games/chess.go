@@ -63,7 +63,10 @@ func HandleChess(chatID string, sender string, name string, args []string, oppon
 			return "No active chess game in this chat.", ""
 		}
 
-		gameFunc, _ := chess.FEN(fen)
+		gameFunc, err := chess.FEN(fen)
+		if err != nil {
+			return "Failed to load game state.", ""
+		}
 		game := chess.NewGame(gameFunc)
 
 		// Check whose turn it is
@@ -75,10 +78,23 @@ func HandleChess(chatID string, sender string, name string, args []string, oppon
 			return "It's not your turn. Waiting for Black.", fen
 		}
 
-		// Try making move
-		err = game.MoveStr(moveStr)
+		// Try making move with multiple notations
+		var move *chess.Move
+		notations := []chess.Notation{chess.AlgebraicNotation{}, chess.UCINotation{}, chess.LongAlgebraicNotation{}}
+		for _, n := range notations {
+			if m, err := n.Decode(game.Position(), moveStr); err == nil {
+				move = m
+				break
+			}
+		}
+
+		if move == nil {
+			return "Invalid move. Use algebraic (e4) or coordinate (e2e4) notation.", fen
+		}
+
+		err = game.Move(move)
 		if err != nil {
-			return "Invalid move. Use algebraic notation (e.g., e2e4).", fen
+			return "Illegal move.", fen
 		}
 
 		UpdateChessGame(chatID, game.FEN())

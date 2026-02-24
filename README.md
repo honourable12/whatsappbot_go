@@ -1,45 +1,50 @@
-# Ayanokoji AI WhatsApp Bot (Go)
+# Ayanokoji AI WhatsApp Bot (Go) v2.0
 
-An advanced WhatsApp AI agent powered by **Groq (Moonshot Kimi K2)** with the clinical, stoic personality of **Kiyotaka Ayanokoji**. This bot features full conversation memory, media manipulation tools, and a suite of interactive multiplayer games.
+An advanced WhatsApp AI agent powered by **Groq (Llama 3.3 70B)** with the clinical, stoic personality of **Kiyotaka Ayanokoji**. This bot features full conversation memory, visual rendering for board games, an integrated economy, and advanced group management tools.
 
 ## 🚀 Features
 
 ### 🧠 Intelligence & Personality
 - **Ayanokoji Persona:** Every response is calculated, logical, and detached.
 - **Full Conversation Memory:** Remembers the entire chat history for contextual continuity.
-- **Clinical Analysis (Roast):** Provides devastatingly calm behavioral evaluations of users.
-- **Group Integration:** Activated in groups via `!ak` or through direct private messages.
+- **Clinical Analysis (Roast):** Provides devastatingly calm behavioral evaluations and mockery of users.
+- **Argument Mode:** Moderates debates by restricting the group to participants and delivering a logical verdict.
+
+### 💰 Economy & Banking
+- **Bank System:** Personal accounts with starting balances, PIN security, and loans.
+- **Robbery & Hacking:** Guess PINs to rob users or defeat them in a Battle Card game to decrypt their security.
+- **Protection:** Buy hourly protection to secure your resources from theft.
+
+### 🎮 Elite Games
+- **Battle Cards:** Visual card combat system with damage bars and elemental types.
+- **Chess:** Integrated chess engine with visual board rendering (coordinates included), Elo ratings, and AI opponents.
+- **Ludo:** Programmatic board rendering with a lobby system (2-4 players).
+- **Gambling Modules:** Aviator (crash game), Spin (Red/Black), Poker, and Blackjack with betting.
+- **Social Games:** Spin the Bottle, Tic-Tac-Toe, and Rock Paper Scissors.
 
 ### 🛠️ Media Tools
 - **View-Once "Steal":** Extract and save view-once images/videos by replying with `!ak steal`.
 - **Sticker Converter:** Convert any image to a WhatsApp sticker with `!ak s`.
 - **Image Converter:** Convert stickers back to high-quality PNGs with `!ak img`.
 
-### 🎮 Games
-- **Ludo:** Programmatic board image rendering with a lobby system (2-4 players).
-- **Poker (Texas Hold'em):** Create tables, join, and receive your cards privately via PM.
-- **Blackjack:** Multiplayer card game with persistent state.
-- **Tic-Tac-Toe:** Play against the AI or challenge a friend by tagging them (`!ak ttt @user`).
-- **Rock Paper Scissors:** Quick logic-based games.
-
 ---
 
 ## 🛠️ Commands
 
-| Command | Description |
-| :--- | :--- |
-| `!ak help` | Display the command menu |
-| `!ak ping` | Check bot connectivity |
-| `!ak reset` | Wipe AI conversation history for the current chat |
-| `!ak [text]` | Chat with Ayanokoji AI |
-| `!ak roast @user` | Get a clinical analysis of a mentioned user |
-| `!ak steal` | (Reply) Extract view-once media |
-| `!ak s` | (Reply) Convert image to sticker |
-| `!ak img` | (Reply) Convert sticker to image |
-| `!ak ludo [make/join/start]` | Manage Ludo game |
-| `!ak poker [make/join/start]` | Manage Poker/Blackjack tables |
-| `!ak ttt [@user]` | Start Tic-Tac-Toe |
-| `!ak ttt move [1-9]` | Make a move in TTT |
+| Command | Category | Description |
+| :--- | :--- | :--- |
+| `!ak help` / `!ak menu` | General | Display the visual command menu |
+| `!ak [text]` | AI | Chat with Ayanokoji AI |
+| `!ak roast @user` | AI | Get a clinical diss of a mentioned user |
+| `!ak argue @user` | Utility | Start a moderated debate mode |
+| `!ak bank [register]` | Economy | Manage balance, loans, and protection |
+| `!ak rob @user [pin]` | Economy | Attempt to steal from another user |
+| `!ak aviator [bet]` | Gambling | Play the high-risk crash game |
+| `!ak battle @user` | Game | Start a visual card combat match |
+| `!ak hack @user` | Game | Battle to reveal a user's bank PIN |
+| `!ak chess [move/register]` | Game | Play ranked chess with visual board |
+| `!ak steal` | Media | (Reply) Extract view-once media |
+| `!ak s` / `!ak img` | Media | (Reply) Image <-> Sticker conversion |
 
 ---
 
@@ -69,12 +74,11 @@ Scan the generated **QR Code** using your WhatsApp mobile app (Linked Devices > 
 ---
 
 ## 📁 Project Structure
-- `main.go`: Event handling and command routing.
-- `ai/`: Groq API integration and Ayanokoji prompt logic.
-- `games/`: Database-backed logic for Ludo, Poker, TTT, and more.
-- `utils/`: Image processing and Ludo board rendering.
-- `games.db`: SQLite storage for game states and chat history.
-- `examplestore.db`: WhatsApp session storage.
+- `main.go`: Event handling, command routing, and visual menu logic.
+- `ai/`: Groq API integration and Ayanokoji behavioral prompt logic.
+- `games/`: Core logic for Chess, Battle Cards, Economy, Poker, and Ludo.
+- `utils/`: Visual rendering engines for boards, coordinates, and media processing.
+- `games.db`: SQLite storage for Elo ratings, bank accounts, and game states.
 
 ## ⚖️ Disclaimer
 This bot is for educational and entertainment purposes. It uses fictional roleplay based on the character Kiyotaka Ayanokoji. Always adhere to WhatsApp's Terms of Service.

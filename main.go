@@ -81,7 +81,11 @@ func handler(evt interface{}) {
 			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("History cleared.")}, whatsmeow.SendRequestExtra{})
 			return
 		}
-		if strings.HasPrefix(lowerText, "!ak help") { handleHelp(v); return }
+		if strings.HasPrefix(lowerText, "!ak lead") {
+			handleLeaderboard(v)
+			return
+		}
+		if strings.HasPrefix(lowerText, "!ak help") || strings.HasPrefix(lowerText, "!ak menu") { handleHelp(v); return }
 		if strings.HasPrefix(lowerText, "!ak steal") { handleSteal(v) } else if strings.HasPrefix(lowerText, "!ak s") { handleSticker(v) } else if strings.HasPrefix(lowerText, "!ak img") { handleImage(v) } else if strings.HasPrefix(lowerText, "!ak roast") { handleRoast(v) } else if strings.HasPrefix(lowerText, "!ak ludo") {
 			args := strings.Fields(text)
 			if len(args) > 1 {
@@ -129,7 +133,50 @@ func handler(evt interface{}) {
 				} else { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res + "\n" + game.RenderText())}, whatsmeow.SendRequestExtra{}) }
 			} else { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{}) }
 			return
-		} else if strings.HasPrefix(lowerText, "!ak argue") { handleArgue(v); return } else if strings.HasPrefix(lowerText, "!ak chess") { handleChess(v); return } else if strings.HasPrefix(lowerText, "!ak rps") { handleRPS(v) } else if strings.HasPrefix(lowerText, "!ak") || !isGroup {
+		} else if strings.HasPrefix(lowerText, "!ak bank") {
+			args := strings.Fields(text)
+			res := games.HandleBank(v.Info.Sender.String(), args[2:])
+			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			return
+		} else if strings.HasPrefix(lowerText, "!ak rob") {
+			args := strings.Fields(text)
+			if len(args) < 4 { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Usage: !ak rob @user [pin]")}, whatsmeow.SendRequestExtra{}); return }
+			mentions := v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
+			if len(mentions) == 0 { return }
+			res, _ := games.RobUser(v.Info.Sender.String(), mentions[0], args[3])
+			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			return
+		} else if strings.HasPrefix(lowerText, "!ak hack") {
+			args := strings.Fields(text)
+			if len(args) < 3 { return }
+			mentions := v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
+			if len(mentions) == 0 { return }
+			opponentName := strings.Split(mentions[0], "@")[0]
+			res, game := games.HandleBattle(v.Info.Chat.String(), v.Info.Sender.String(), v.Info.PushName, mentions[0], opponentName, []string{"hack"})
+			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			if game != nil {
+				boardImg, _ := utils.RenderBattleBoard(game)
+				resp, _ := client.Upload(context.Background(), boardImg, whatsmeow.MediaImage)
+				client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{ImageMessage: &waE2E.ImageMessage{URL: proto.String(resp.URL), DirectPath: proto.String(resp.DirectPath), MediaKey: resp.MediaKey, Mimetype: proto.String("image/png"), FileEncSHA256: resp.FileEncSHA256, FileSHA256: resp.FileSHA256, FileLength: proto.Uint64(uint64(len(boardImg))), Caption: proto.String("HACK IN PROGRESS")}}, whatsmeow.SendRequestExtra{})
+			}
+			return
+		} else if strings.HasPrefix(lowerText, "!ak aviator") || strings.HasPrefix(lowerText, "!ak spin") || strings.HasPrefix(lowerText, "!ak red") || strings.HasPrefix(lowerText, "!ak black") {
+			args := strings.Fields(text)
+			res, _ := games.HandleGambling(v.Info.Sender.String(), args[1:])
+			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			return
+		} else if strings.HasPrefix(lowerText, "!ak bottle") {
+			mentions := v.Message.GetExtendedTextMessage().GetContextInfo().GetMentionedJID()
+			res := games.SpinBottle(mentions)
+			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+			return
+		} else if strings.HasPrefix(lowerText, "!ak argue") {
+			handleArgue(v); return
+		} else if strings.HasPrefix(lowerText, "!ak chess") {
+			handleChess(v); return
+		} else if strings.HasPrefix(lowerText, "!ak rps") {
+			handleRPS(v)
+		} else if strings.HasPrefix(lowerText, "!ak") || !isGroup {
 			query := text
 			if strings.HasPrefix(lowerText, "!ak") { query = strings.TrimSpace(text[len("!ak"):]) }
 			if query == "" && isGroup { return }
@@ -150,20 +197,53 @@ func handleRoast(v *events.Message) {
 }
 
 func handleHelp(v *events.Message) {
-	helpText := `🤖 *Ayanokoji Bot Commands*
-- !ak help: Show help.
-- !ak [question]: Chat.
-- !ak roast @user: Calculated diss.
-- !ak s: Sticker.
-- !ak img: To image.
-- !ak ludo: Ludo.
-- !ak ttt: Tic-Tac-Toe.
-- !ak poker: Poker.
-- !ak battle: Battle cards.
-- !ak argue: Argument mode.
-- !ak chess: Chess game.
-- !ak rps: Rock Paper Scissors.`
-	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(helpText)}, whatsmeow.SendRequestExtra{})
+	menuText := `🎓 *Ayanokoji OS v2.0* 
+_Everything is within my calculations._
+
+*🤖 ARTIFICIAL INTELLIGENCE*
+- !ak [query]: Conversational interface.
+- !ak roast @user: Behavioral flaw analysis.
+
+*🎮 ELITE GAMES*
+- !ak battle @user: Card-based combat.
+- !ak chess [e2e4/e4]: Strategic simulation.
+- !ak ludo/ttt/poker: Competitive modules.
+- !ak lead [chess/bank]: Display rankings.
+
+*💰 ECONOMY & BANKING*
+- !ak bank: Financial status.
+- !ak rob @user [pin]: Resource reallocation.
+- !ak hack @user: PIN decryption via Battle.
+- !ak aviator/spin: Probability testing.
+
+*🛠️ UTILITIES*
+- !ak s: Create stickers.
+- !ak img: Revert stickers.
+- !ak steal: Capture view-once data.
+- !ak argue @user: Managed debate mode.`
+
+	dummyGame := &games.BattleGame{
+		Player1: games.BattlePlayer{Name: "P1", HP: 100, Board: []games.BattleCard{{Name: "Flame Warrior", Attack: 25, Defense: 10, Color: "Red"}}},
+		Player2: games.BattlePlayer{Name: "P2", HP: 80, Board: []games.BattleCard{{Name: "Ice Titan", Attack: 5, Defense: 45, Color: "Blue"}}},
+	}
+	sampleImg, err := utils.RenderBattleBoard(dummyGame)
+	if err == nil {
+		resp, _ := client.Upload(context.Background(), sampleImg, whatsmeow.MediaImage)
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{
+			ImageMessage: &waE2E.ImageMessage{
+				URL:           proto.String(resp.URL),
+				DirectPath:    proto.String(resp.DirectPath),
+				MediaKey:      resp.MediaKey,
+				Mimetype:      proto.String("image/png"),
+				FileEncSHA256: resp.FileEncSHA256,
+				FileSHA256:    resp.FileSHA256,
+				FileLength:    proto.Uint64(uint64(len(sampleImg))),
+				Caption:       proto.String(menuText),
+			},
+		}, whatsmeow.SendRequestExtra{})
+	} else {
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(menuText)}, whatsmeow.SendRequestExtra{})
+	}
 }
 
 func handleRPS(v *events.Message) {
@@ -197,10 +277,10 @@ func handleSteal(v *events.Message) {
 	} else { return }
 	if mimeType == "image/jpeg" {
 		resp, _ := client.Upload(context.Background(), data, whatsmeow.MediaImage)
-		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{ImageMessage: &waE2E.ImageMessage{URL: proto.String(resp.URL), DirectPath: proto.String(resp.DirectPath), MediaKey: resp.MediaKey, Mimetype: proto.String(mimeType), FileEncSHA256: resp.FileEncSHA256, FileSHA256: resp.FileSHA256, FileLength: proto.Uint64(uint64(len(data)))}}, whatsmeow.SendRequestExtra{})
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{ImageMessage: &waE2E.ImageMessage{URL: proto.String(resp.URL), DirectPath: proto.String(resp.DirectPath), MediaKey: resp.MediaKey, Mimetype: proto.String("image/jpeg"), FileEncSHA256: resp.FileEncSHA256, FileSHA256: resp.FileSHA256, FileLength: proto.Uint64(uint64(len(data)))}}, whatsmeow.SendRequestExtra{})
 	} else {
 		resp, _ := client.Upload(context.Background(), data, whatsmeow.MediaVideo)
-		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{VideoMessage: &waE2E.VideoMessage{URL: proto.String(resp.URL), DirectPath: proto.String(resp.DirectPath), MediaKey: resp.MediaKey, Mimetype: proto.String(mimeType), FileEncSHA256: resp.FileEncSHA256, FileSHA256: resp.FileSHA256, FileLength: proto.Uint64(uint64(len(data)))}}, whatsmeow.SendRequestExtra{})
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{VideoMessage: &waE2E.VideoMessage{URL: proto.String(resp.URL), DirectPath: proto.String(resp.DirectPath), MediaKey: resp.MediaKey, Mimetype: proto.String("video/mp4"), FileEncSHA256: resp.FileEncSHA256, FileSHA256: resp.FileSHA256, FileLength: proto.Uint64(uint64(len(data)))}}, whatsmeow.SendRequestExtra{})
 	}
 }
 
@@ -227,11 +307,11 @@ func handleArgue(v *events.Message) {
 	cmd := ""
 	if len(args) >= 3 { cmd = strings.ToLower(args[2]) }
 	if cmd == "end" || cmd == "resign" {
-		p1, p2, _, active, _ := games.GetArgument(v.Info.Chat.String())
+		p1JID_str, p2JID_str, _, active, _ := games.GetArgument(v.Info.Chat.String())
 		if !active { return }
-		if v.Info.Sender.String() != p1 && v.Info.Sender.String() != p2 { return }
+		if v.Info.Sender.String() != p1JID_str && v.Info.Sender.String() != p2JID_str { return }
 		client.SetGroupAnnounce(context.Background(), v.Info.Chat, false)
-		p1JID, _ := types.ParseJID(p1); p2JID, _ := types.ParseJID(p2)
+		p1JID, _ := types.ParseJID(p1JID_str); p2JID, _ := types.ParseJID(p2JID_str)
 		client.UpdateGroupParticipants(context.Background(), v.Info.Chat, []types.JID{p1JID, p2JID}, whatsmeow.ParticipantChangeDemote)
 		history, _ := games.GetChatHistory(v.Info.Chat.String(), 100)
 		transcript := ""
@@ -274,4 +354,24 @@ func handleChess(v *events.Message) {
 			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{ImageMessage: &waE2E.ImageMessage{URL: proto.String(resp.URL), DirectPath: proto.String(resp.DirectPath), MediaKey: resp.MediaKey, Mimetype: proto.String("image/png"), FileEncSHA256: resp.FileEncSHA256, FileSHA256: resp.FileSHA256, FileLength: proto.Uint64(uint64(len(boardImg))), Caption: proto.String(fmt.Sprintf("FEN: %s", fen))}}, whatsmeow.SendRequestExtra{})
 		}
 	}
+}
+
+func handleLeaderboard(v *events.Message) {
+	args := strings.Fields(v.Message.GetConversation())
+	limit := 10
+	category := "chess"
+	if len(args) >= 3 { category = strings.ToLower(args[2]) }
+	var sb strings.Builder
+	if category == "chess" {
+		players, err := games.GetChessLeaderboard(limit)
+		if err != nil { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Failed to load chess leaderboard.")}, whatsmeow.SendRequestExtra{}); return }
+		sb.WriteString("🏆 *Chess Global Rankings*\n\n")
+		for i, p := range players { sb.WriteString(fmt.Sprintf("%d. %s - %d Elo (%dW/%dL/%dD)\n", i+1, p.Name, p.Elo, p.Wins, p.Losses, p.Draws)) }
+	} else if category == "bank" || category == "money" {
+		entries, err := games.GetEconomyLeaderboard(limit)
+		if err != nil { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Failed to load economy leaderboard.")}, whatsmeow.SendRequestExtra{}); return }
+		sb.WriteString("💰 *Wealthiest Individuals*\n\n")
+		for i, e := range entries { sb.WriteString(fmt.Sprintf("%d. %s - %d credits\n", i+1, e.Name, e.Balance)) }
+	} else { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Invalid category. Use !ak lead chess or !ak lead bank.")}, whatsmeow.SendRequestExtra{}); return }
+	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(sb.String())}, whatsmeow.SendRequestExtra{})
 }

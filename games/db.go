@@ -16,6 +16,8 @@ func InitDB(path string) error {
 	CREATE TABLE IF NOT EXISTS game_states (chat_id TEXT PRIMARY KEY, game_type TEXT, state TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS arguments (chat_id TEXT PRIMARY KEY, p1_jid TEXT, p2_jid TEXT, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, active BOOLEAN DEFAULT 1);
 	CREATE TABLE IF NOT EXISTS chess_players (jid TEXT PRIMARY KEY, name TEXT, elo INTEGER DEFAULT 1200, wins INTEGER DEFAULT 0, losses INTEGER DEFAULT 0, draws INTEGER DEFAULT 0);
+	CREATE TABLE IF NOT EXISTS bank_accounts (jid TEXT PRIMARY KEY, balance INTEGER DEFAULT 500, bank_loan INTEGER DEFAULT 0, pin TEXT DEFAULT '0000', protection_until DATETIME DEFAULT CURRENT_TIMESTAMP, last_rob_attempt DATETIME DEFAULT CURRENT_TIMESTAMP);
+	CREATE TABLE IF NOT EXISTS p2p_loans (id INTEGER PRIMARY KEY AUTOINCREMENT, lender_jid TEXT, borrower_jid TEXT, amount INTEGER, interest_rate REAL, due_date DATETIME, status TEXT DEFAULT 'active');
 	CREATE TABLE IF NOT EXISTS chess_games (chat_id TEXT PRIMARY KEY, p_white_jid TEXT, p_black_jid TEXT, is_ai BOOLEAN DEFAULT 0, fen TEXT, active BOOLEAN DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);`
 
@@ -120,4 +122,32 @@ func UpdateChessGame(chatID, fen string) error {
 func DeleteChessGame(chatID string) error {
 	_, err := db.Exec("DELETE FROM chess_games WHERE chat_id = ?", chatID)
 	return err
+}
+
+func GetChessLeaderboard(limit int) ([]ChessPlayer, error) {
+	rows, err := db.Query("SELECT jid, name, elo, wins, losses, draws FROM chess_players ORDER BY elo DESC LIMIT ?", limit)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var players []ChessPlayer
+	for rows.Next() {
+		var p ChessPlayer
+		rows.Scan(&p.JID, &p.Name, &p.Elo, &p.Wins, &p.Losses, &p.Draws)
+		players = append(players, p)
+	}
+	return players, nil
+}
+
+type EconomyEntry struct { JID, Name string; Balance int }
+
+func GetEconomyLeaderboard(limit int) ([]EconomyEntry, error) {
+	rows, err := db.Query("SELECT b.jid, COALESCE(c.name, 'Unknown'), b.balance FROM bank_accounts b LEFT JOIN chess_players c ON b.jid = c.jid ORDER BY b.balance DESC LIMIT ?", limit)
+	if err != nil { return nil, err }
+	defer rows.Close()
+	var entries []EconomyEntry
+	for rows.Next() {
+		var e EconomyEntry
+		rows.Scan(&e.JID, &e.Name, &e.Balance)
+		entries = append(entries, e)
+	}
+	return entries, nil
 }
