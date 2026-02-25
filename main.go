@@ -29,10 +29,30 @@ import (
 
 var client *whatsmeow.Client
 
+const CurrentVersion = "2.1.0"
+const UpdateNotification = `🚀 *New Update: Ayanokoji OS v2.1.0*
+
+We've improved the system for better performance and added new features:
+- *Update Notifications:* Stay informed about the latest changes.
+- *Performance Fixes:* Smoother interactions and faster response times.
+- *Economy Balancing:* Minor adjustments to bank and gambling modules.
+
+_Everything is proceeding according to plan._`
+
 func main() {
 	rand.Seed(time.Now().UnixNano())
 	godotenv.Load()
 	games.InitDB("games.db")
+	games.InitStocks()
+
+	// Stock Price Update Ticker (every hour)
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		for range ticker.C {
+			games.UpdateStockPrices()
+		}
+	}()
+
 	dbLog := waLog.Stdout("Database", "DEBUG", true)
 	container, err := sqlstore.New(context.Background(), "sqlite3", "file:examplestore.db?_foreign_keys=on", dbLog)
 	if err != nil { panic(err) }
@@ -72,6 +92,10 @@ func handler(evt interface{}) {
 		}
 
 		lowerText := strings.ToLower(text)
+		if strings.HasPrefix(lowerText, "!ak") {
+			handleUpdateNotification(v)
+		}
+
 		if strings.HasPrefix(lowerText, "!ak ping") {
 			client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("I'm awake.")}, whatsmeow.SendRequestExtra{})
 			return
@@ -86,6 +110,18 @@ func handler(evt interface{}) {
 			return
 		}
 		if strings.HasPrefix(lowerText, "!ak help") || strings.HasPrefix(lowerText, "!ak menu") { handleHelp(v); return }
+		if strings.HasPrefix(lowerText, "!ak run") {
+			handleRun(v); return
+		}
+		if strings.HasPrefix(lowerText, "!ak anime") {
+			handleAnime(v); return
+		}
+		if strings.HasPrefix(lowerText, "!ak stocks") {
+			handleStocks(v); return
+		}
+		if strings.HasPrefix(lowerText, "!ak gh") {
+			handleGithub(v); return
+		}
 		if strings.HasPrefix(lowerText, "!ak steal") { handleSteal(v) } else if strings.HasPrefix(lowerText, "!ak s") { handleSticker(v) } else if strings.HasPrefix(lowerText, "!ak img") { handleImage(v) } else if strings.HasPrefix(lowerText, "!ak roast") { handleRoast(v) } else if strings.HasPrefix(lowerText, "!ak ludo") {
 			args := strings.Fields(text)
 			if len(args) > 1 {
@@ -197,8 +233,8 @@ func handleRoast(v *events.Message) {
 }
 
 func handleHelp(v *events.Message) {
-	menuText := `🎓 *Ayanokoji OS v2.0* 
-_Everything is within my calculations._
+	menuText := fmt.Sprintf("🎓 *Ayanokoji OS v%s* \n", CurrentVersion) +
+		`_Everything is within my calculations._
 
 *🤖 ARTIFICIAL INTELLIGENCE*
 - !ak [query]: Conversational interface.
@@ -212,11 +248,15 @@ _Everything is within my calculations._
 
 *💰 ECONOMY & BANKING*
 - !ak bank: Financial status.
+- !ak stocks: Simulated market.
 - !ak rob @user [pin]: Resource reallocation.
 - !ak hack @user: PIN decryption via Battle.
 - !ak aviator/spin: Probability testing.
 
 *🛠️ UTILITIES*
+- !ak run [lang] [code]: Execute code.
+- !ak anime [title]: Anime information.
+- !ak gh [user/repo]: GitHub explorer.
 - !ak s: Create stickers.
 - !ak img: Revert stickers.
 - !ak steal: Capture view-once data.
@@ -244,6 +284,52 @@ _Everything is within my calculations._
 	} else {
 		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(menuText)}, whatsmeow.SendRequestExtra{})
 	}
+}
+
+func handleRun(v *events.Message) {
+	args := strings.Fields(v.Message.GetConversation())
+	if len(args) < 3 { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Usage: !ak run [lang] [code]")}, whatsmeow.SendRequestExtra{}); return }
+	lang := strings.ToLower(args[1])
+	code := strings.Join(args[2:], " ")
+	res := utils.RunCode(lang, code)
+	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+}
+
+func handleAnime(v *events.Message) {
+	args := strings.Fields(v.Message.GetConversation())
+	if len(args) < 3 { return }
+	query := strings.Join(args[2:], " ")
+	res := utils.GetAnimeInfo(query)
+	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+}
+
+func handleStocks(v *events.Message) {
+	args := strings.Fields(v.Message.GetConversation())
+	jid := v.Info.Sender.String()
+	if len(args) < 3 {
+		res := games.GetStockMarket() + "\n\n" + games.GetUserStocks(jid)
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+		return
+	}
+	cmd := strings.ToLower(args[2])
+	if cmd == "buy" || cmd == "sell" {
+		if len(args) < 5 { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Usage: !ak stocks buy/sell [symbol] [qty]")}, whatsmeow.SendRequestExtra{}); return }
+		symbol := args[3]
+		var qty int
+		fmt.Sscanf(args[4], "%d", &qty)
+		var res string
+		if cmd == "buy" { res = games.BuyStock(jid, symbol, qty) } else { res = games.SellStock(jid, symbol, qty) }
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
+	}
+}
+
+func handleGithub(v *events.Message) {
+	args := strings.Fields(v.Message.GetConversation())
+	if len(args) < 3 { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Usage: !ak gh [username] OR !ak gh [user/repo]")}, whatsmeow.SendRequestExtra{}); return }
+	query := args[2]
+	var res string
+	if strings.Contains(query, "/") { res = utils.GetGithubRepo(query) } else { res = utils.GetGithubProfile(query) }
+	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(res)}, whatsmeow.SendRequestExtra{})
 }
 
 func handleRPS(v *events.Message) {
@@ -374,4 +460,13 @@ func handleLeaderboard(v *events.Message) {
 		for i, e := range entries { sb.WriteString(fmt.Sprintf("%d. %s - %d credits\n", i+1, e.Name, e.Balance)) }
 	} else { client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String("Invalid category. Use !ak lead chess or !ak lead bank.")}, whatsmeow.SendRequestExtra{}); return }
 	client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(sb.String())}, whatsmeow.SendRequestExtra{})
+}
+
+func handleUpdateNotification(v *events.Message) {
+	chatID := v.Info.Chat.String()
+	notifiedVer, _ := games.GetNotifiedVersion(chatID)
+	if notifiedVer != CurrentVersion {
+		client.SendMessage(context.Background(), v.Info.Chat, &waE2E.Message{Conversation: proto.String(UpdateNotification)}, whatsmeow.SendRequestExtra{})
+		games.SetNotifiedVersion(chatID, CurrentVersion)
+	}
 }

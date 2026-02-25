@@ -19,7 +19,10 @@ func InitDB(path string) error {
 	CREATE TABLE IF NOT EXISTS bank_accounts (jid TEXT PRIMARY KEY, balance INTEGER DEFAULT 500, bank_loan INTEGER DEFAULT 0, pin TEXT DEFAULT '0000', protection_until DATETIME DEFAULT CURRENT_TIMESTAMP, last_rob_attempt DATETIME DEFAULT CURRENT_TIMESTAMP);
 	CREATE TABLE IF NOT EXISTS p2p_loans (id INTEGER PRIMARY KEY AUTOINCREMENT, lender_jid TEXT, borrower_jid TEXT, amount INTEGER, interest_rate REAL, due_date DATETIME, status TEXT DEFAULT 'active');
 	CREATE TABLE IF NOT EXISTS chess_games (chat_id TEXT PRIMARY KEY, p_white_jid TEXT, p_black_jid TEXT, is_ai BOOLEAN DEFAULT 0, fen TEXT, active BOOLEAN DEFAULT 1, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP);
-	CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);`
+	CREATE TABLE IF NOT EXISTS chat_history (id INTEGER PRIMARY KEY AUTOINCREMENT, chat_id TEXT, role TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP);
+	CREATE TABLE IF NOT EXISTS stocks (symbol TEXT PRIMARY KEY, name TEXT, price INTEGER, last_price INTEGER, volatility REAL);
+	CREATE TABLE IF NOT EXISTS user_stocks (jid TEXT, symbol TEXT, quantity INTEGER, PRIMARY KEY(jid, symbol));
+	CREATE TABLE IF NOT EXISTS notified_updates (chat_id TEXT PRIMARY KEY, version TEXT);`
 
 	_, err = db.Exec(query)
 	return err
@@ -151,3 +154,15 @@ func GetEconomyLeaderboard(limit int) ([]EconomyEntry, error) {
 	}
 	return entries, nil
 }
+
+func GetNotifiedVersion(chatID string) (string, error) {
+	var version string
+	err := db.QueryRow("SELECT version FROM notified_updates WHERE chat_id = ?", chatID).Scan(&version)
+	return version, err
+}
+
+func SetNotifiedVersion(chatID, version string) error {
+	_, err := db.Exec("INSERT INTO notified_updates (chat_id, version) VALUES (?, ?) ON CONFLICT(chat_id) DO UPDATE SET version = excluded.version", chatID, version)
+	return err
+}
+
